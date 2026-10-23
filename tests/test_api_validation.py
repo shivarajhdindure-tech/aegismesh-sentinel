@@ -6,7 +6,7 @@ from backend.app.main import app
 from unittest.mock import patch
 
 
-client = TestClient(app)
+client = TestClient(app, raise_server_exceptions=False)
 
 
 def test_analyze_rejects_negative_failed_attempts(monkeypatch):
@@ -236,3 +236,28 @@ def test_replay_unexpected_error_does_not_expose_internal_details():
 
     assert response.status_code == 500
     assert "internal storage credentials" not in response.text
+
+
+def test_analyze_unexpected_exception_returns_generic_500():
+    with patch(
+        "backend.app.api.routes._pipeline.analyze",
+        side_effect=LookupError("sensitive internal implementation details"),
+    ):
+        response = client.post(
+            "/analyze",
+            json={
+                "incident_id": "incident-api-error-002",
+                "identity_id": "user:alice",
+                "events_last_hour": 9,
+                "unique_resources": 2,
+                "failed_attempts": 0,
+                "privilege_changes": 0,
+                "off_hours": 0,
+                "relationships": [],
+                "sensitive_resources": [],
+            },
+        )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal server error"}
+    assert "sensitive internal implementation details" not in response.text
