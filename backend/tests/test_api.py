@@ -125,3 +125,77 @@ def test_replay_endpoint_rejects_empty_events():
     )
 
     assert response.status_code == 422
+
+
+def test_api_rejects_oversized_request_body():
+    response = client.post(
+        "/replay",
+        content=b"x" * (1024 * 1024 + 1),
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {"detail": "Request body too large"}
+
+
+def test_api_rejects_oversized_chunked_request_body():
+
+    from backend.app.main import RequestBodyLimitMiddleware
+
+    async def downstream_app(scope, receive, send):
+        # The downstream app must not be called for oversized requests.
+        raise AssertionError("Oversized request reached the application")
+
+    middleware = RequestBodyLimitMiddleware(
+        downstream_app,
+        max_body_bytes=8,
+    )
+
+    async def run_test():
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/test",
+            "raw_path": b"/test",
+            "query_string": b"",
+            "headers": [(b"content-type", b"application/json")],
+            "client": ("testclient", 123),
+            "server": ("testserver", 80),
+        }
+
+        chunks = [
+            {
+                "type": "http.request",
+                "body": b'{"a":',
+                "more_body": True,
+            },
+            {
+                "type": "http.request",
+                "body": b'"123"}',
+                "more_body": False,
+            },
+        ]
+
+        async def receive():
+            return chunks.pop(0)
+
+        sent = []
+
+        async def send(message):
+            sent.append(message)
+
+        await middleware(scope, receive, send)
+
+        assert sent[0]["status"] == 413
+        assert b"".join(
+            message.get("body", b"")
+            for message in sent
+            if message["type"] == "http.response.body"
+        ) == b'{"detail":"Request body too large"}'
+
+    import asyncio
+
+    asyncio.run(run_test())
