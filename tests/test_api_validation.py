@@ -315,3 +315,33 @@ def test_unexpected_exception_is_logged(caplog):
     assert "Unhandled exception during POST /analyze" in caplog.text
     assert "test-only internal detail" in caplog.text
     assert "test-only internal detail" not in response.text
+
+
+def test_replay_unexpected_exception_is_logged(caplog):
+    import logging
+
+    with caplog.at_level(logging.ERROR, logger="backend.app.main"):
+        with patch(
+            "backend.app.api.routes.IncidentReplay.replay",
+            side_effect=LookupError("test-only replay detail"),
+        ):
+            response = client.post(
+                "/replay",
+                json={
+                    "events": [
+                        {
+                            "source": "user:alice",
+                            "target": "role:developer",
+                            "relationship": "assumes",
+                            "action": "grant",
+                        }
+                    ],
+                    "sensitive_resources": [],
+                },
+            )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal server error"}
+    assert "Unhandled exception during POST /replay" in caplog.text
+    assert "test-only replay detail" in caplog.text
+    assert "test-only replay detail" not in response.text
