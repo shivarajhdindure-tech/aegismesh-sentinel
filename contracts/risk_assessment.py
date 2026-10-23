@@ -20,6 +20,7 @@ class RiskAssessment(BaseModel):
     attack_path: list[str] | None = None
 
     reasons: list[str] = Field(default_factory=list)
+    recommended_action: str | None = None
     model_version: str
 
     evidence: dict[str, Any] = Field(default_factory=dict)

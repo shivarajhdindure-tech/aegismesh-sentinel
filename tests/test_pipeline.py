@@ -113,3 +113,6 @@ def test_pipeline_integrates_permission_drift_and_candidate_attack_path():
         "user:alice",
         ["resource:customer-db"],
     ) == []
+    
+    assert assessment.recommended_action is not None
+    assert len(assessment.recommended_action) > 0

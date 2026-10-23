@@ -161,4 +161,5 @@ class SecurityAnalysisPipeline:
                 "candidate_attack_path": path_analysis,
                 "risk_prioritization": prioritized,
             },
+            recommended_action=prioritized["recommended_action"],
         )
