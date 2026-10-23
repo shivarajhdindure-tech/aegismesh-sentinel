@@ -38,7 +38,11 @@ class IncidentReplay:
         for index, event in enumerate(events):
             if not isinstance(event, dict):
                 raise ValueError(f"Event {index} must be an object")
-
+            previously_reachable = set(
+                graph.reachable_resources(
+                    replay_identity, sensitive_resources or []
+                )
+            )
             source = event.get("source")
             target = event.get("target")
             relationship = event.get("relationship")
@@ -93,6 +97,27 @@ class IncidentReplay:
             reachable = graph.reachable_resources(
                 replay_identity, sensitive_resources or []
             )
+            currently_reachable = set(reachable)
+
+            access_changes = []
+            for resource in sorted(currently_reachable - previously_reachable):
+                path = graph.shortest_path(replay_identity, resource)
+                access_changes.append(
+                    {
+                        "resource": resource,
+                        "change": "became_reachable",
+                        "path": path,
+                    }
+                )
+
+            for resource in sorted(previously_reachable - currently_reachable):
+                access_changes.append(
+                    {
+                        "resource": resource,
+                        "change": "became_unreachable",
+                        "path": None,
+                    }
+                )
 
 
             timeline.append(
@@ -106,6 +131,7 @@ class IncidentReplay:
                     "outcome": outcome,
                     "reachable_sensitive_resources": reachable,
                     "relationship_changed": relationship_changed,
+                    "access_changes": access_changes,
                 }
             )
 

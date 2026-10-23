@@ -317,3 +317,49 @@ def test_replay_includes_summary_outcome_counts():
         "revoked": 1,
         "not_found": 1,
     }
+
+
+def test_replay_explains_when_sensitive_resource_becomes_reachable():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:developer",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "grant",
+            },
+        ],
+        sensitive_resources=["resource:customer-db"],
+    )
+
+    assert (
+        result["timeline"][0]["reachable_sensitive_resources"] == []
+    )
+    assert (
+        result["timeline"][1]["reachable_sensitive_resources"]
+        == ["resource:customer-db"]
+    )
+
+    # The explanation field will be implemented in the next step.
+    assert (
+        result["timeline"][1]["access_changes"][0]["resource"]
+        == "resource:customer-db"
+    )
+    assert (
+        result["timeline"][1]["access_changes"][0]["change"]
+        == "became_reachable"
+    )
+    assert (
+        result["timeline"][1]["access_changes"][0]["path"]
+        == [
+            "user:alice",
+            "role:developer",
+            "resource:customer-db",
+        ]
+    )
