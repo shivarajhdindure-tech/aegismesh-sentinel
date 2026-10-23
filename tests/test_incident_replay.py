@@ -494,3 +494,66 @@ def test_access_change_identifies_relationship_that_enabled_access():
         "target": "resource:customer-db",
         "type": "can_read",
     }
+
+
+def test_replay_summarizes_sensitive_resource_access_impact():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:developer",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "revoke",
+            },
+        ],
+        sensitive_resources=[
+            "resource:customer-db",
+            "resource:payroll",
+        ],
+    )
+
+    assert result["access_impact"] == {
+        "resources_became_reachable": [],
+        "resources_became_unreachable": [],
+        "resources_still_reachable": [],
+        "total_access_changes": 2,
+    }
+
+
+def test_replay_impact_summary_reports_resource_still_reachable():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:developer",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "grant",
+            },
+        ],
+        sensitive_resources=["resource:customer-db"],
+    )
+
+    assert result["access_impact"] == {
+        "resources_became_reachable": ["resource:customer-db"],
+        "resources_became_unreachable": [],
+        "resources_still_reachable": [],
+        "total_access_changes": 1,
+    }

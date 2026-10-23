@@ -20,6 +20,7 @@ class IncidentReplay:
         if not events:
             raise ValueError("At least one event is required")
 
+        initial_reachable: set[str] = set()
         graph = AttackGraph()
         timeline: list[dict[str, Any]] = []
         relationships_processed = 0
@@ -98,6 +99,8 @@ class IncidentReplay:
                 replay_identity, sensitive_resources or []
             )
             currently_reachable = set(reachable)
+            if index == 0:
+                initial_reachable = set(previously_reachable)
 
             access_changes = []
             for resource in sorted(currently_reachable - previously_reachable):
@@ -164,6 +167,28 @@ class IncidentReplay:
                 }
             )
 
+        final_reachable = set(
+            timeline[-1]["reachable_sensitive_resources"]
+        )
+
+        all_access_changes = [
+            change
+            for event in timeline
+            for change in event["access_changes"]
+        ]
+
+        access_impact = {
+            "resources_became_reachable": sorted(
+                final_reachable - initial_reachable
+            ),
+            "resources_became_unreachable": sorted(
+                initial_reachable - final_reachable
+            ),
+            "resources_still_reachable": sorted(
+                initial_reachable & final_reachable
+            ),
+            "total_access_changes": len(all_access_changes),
+        }
 
         return {
             "events_replayed": len(events),
@@ -173,6 +198,7 @@ class IncidentReplay:
                 "relationships_processed": relationships_processed,
                 "outcome_counts": outcome_counts,
             },
+            "access_impact": access_impact,
             "timeline": timeline,
             "final_reachable_sensitive_resources": (
                 timeline[-1]["reachable_sensitive_resources"]
