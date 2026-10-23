@@ -94,4 +94,9 @@ def replay_incident(request: IncidentReplayRequest) -> dict:
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        ) from exc
 

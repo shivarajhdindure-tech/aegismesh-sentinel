@@ -212,3 +212,27 @@ def test_replay_invalid_event_returns_422():
     )
 
     assert response.status_code == 422
+
+
+def test_replay_unexpected_error_does_not_expose_internal_details():
+    with patch(
+        "backend.app.api.routes.IncidentReplay.replay",
+        side_effect=RuntimeError("internal storage credentials"),
+    ):
+        response = client.post(
+            "/replay",
+            json={
+                "events": [
+                    {
+                        "source": "user:alice",
+                        "target": "role:developer",
+                        "relationship": "assumes",
+                        "action": "grant",
+                    }
+                ],
+                "sensitive_resources": [],
+            },
+        )
+
+    assert response.status_code == 500
+    assert "internal storage credentials" not in response.text
