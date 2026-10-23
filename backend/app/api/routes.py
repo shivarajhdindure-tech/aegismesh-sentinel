@@ -14,6 +14,11 @@ from ml_engine.attack_graph import AttackGraph
 from ml_engine.baseline_loader import train_detector
 from ml_engine.pipeline import SecurityAnalysisPipeline
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 router = APIRouter()
 
 # Explicitly opt into synthetic data only for local development.
@@ -70,13 +75,14 @@ def analyze_event(request: AccessEventRequest) -> dict:
             attack_graph=graph,
             sensitive_resources=request.sensitive_resources,
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except RuntimeError as exc:
+
+    except RuntimeError:
+        logger.exception("Unexpected runtime error during event analysis")
         raise HTTPException(
             status_code=500,
             detail="Internal server error",
-        ) from exc
+        ) from None
+
 
     return assessment.model_dump()
 
@@ -94,9 +100,10 @@ def replay_incident(request: IncidentReplayRequest) -> dict:
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except RuntimeError as exc:
+
+    except RuntimeError:
+        logger.exception("Unexpected runtime error during incident replay")
         raise HTTPException(
             status_code=500,
             detail="Internal server error",
-        ) from exc
-
+        ) from None
