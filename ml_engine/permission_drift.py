@@ -1,5 +1,8 @@
 
+from copy import deepcopy
 from typing import Any
+
+from ml_engine.attack_graph import AttackGraph
 
 
 class PermissionDriftDetector:
@@ -74,4 +77,60 @@ class PermissionDriftDetector:
             "drift_detected": bool(drift_findings),
             "finding_count": len(drift_findings),
             "findings": drift_findings,
+        }
+
+    def analyze_attack_path(
+        self,
+        graph: AttackGraph,
+        identity_id: str,
+        source: str,
+        target: str,
+        relationship: str,
+        sensitive_resources: list[str],
+    ) -> dict[str, Any]:
+        """Assess whether a candidate relationship creates a path to sensitive resources."""
+        if not isinstance(graph, AttackGraph):
+            raise ValueError("graph must be an AttackGraph")
+
+        for label, value in (
+            ("identity_id", identity_id),
+            ("source", source),
+            ("target", target),
+            ("relationship", relationship),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{label} must be a non-empty string")
+
+        if not isinstance(sensitive_resources, list) or not all(
+            isinstance(item, str) and item.strip()
+            for item in sensitive_resources
+        ):
+            raise ValueError("sensitive_resources must be a list of non-empty strings")
+
+        simulated_graph = deepcopy(graph)
+        before = simulated_graph.reachable_resources(
+            identity_id, sensitive_resources
+        )
+
+        simulated_graph.add_relationship(source, target, relationship)
+
+        after = simulated_graph.reachable_resources(
+            identity_id, sensitive_resources
+        )
+
+        newly_reachable = sorted(set(after) - set(before))
+
+        return {
+            "identity_id": identity_id,
+            "candidate_relationship": {
+                "source": source,
+                "target": target,
+                "type": relationship,
+            },
+            "newly_reachable_sensitive_resources": newly_reachable,
+            "creates_new_attack_path": bool(newly_reachable),
+            "paths": {
+                resource: simulated_graph.shortest_path(identity_id, resource)
+                for resource in newly_reachable
+            },
         }
