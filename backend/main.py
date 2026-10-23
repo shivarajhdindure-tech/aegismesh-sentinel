@@ -46,3 +46,21 @@ def create_event(event: SecurityEvent):
             status_code=503,
             detail="Unable to save the security event"
         )
+
+
+@app.get("/events")
+def list_events():
+    try:
+        events = list(
+            security_events.find(
+                {},
+                {"_id": 0}
+            ).sort("timestamp", -1).limit(50)
+        )
+        return {"events": events}
+    except PyMongoError:
+        raise HTTPException(
+            status_code=503,
+            detail="Database temporarily unavailable"
+        )
+

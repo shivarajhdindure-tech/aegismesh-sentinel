@@ -20,5 +20,6 @@ else:
             client.admin.command("ping")
             print("MongoDB Atlas connection successful!")
             print(f"Database configured: {database_name}")
-    except PyMongoError:
-        print("Connection failed. Check your Atlas settings and credentials.")
+    except PyMongoError as e:
+        print("MongoDB connection failed.")
+        print("Error details:", repr(e))
