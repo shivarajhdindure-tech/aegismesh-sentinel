@@ -20,4 +20,8 @@ db = client[MONGODB_DATABASE]
 # Collection for synthetic security events during development.
 security_events = db["security_events"]
 
-security_events.create_index("event_id", unique=True)
+def initialize_database():
+    security_events.create_index("event_id", unique=True)
+
+def initialize_database():
+    security_events.create_index("event_id", unique=True)

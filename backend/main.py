@@ -4,10 +4,21 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError, PyMongoError
+from backend.database import security_events, initialize_database
+from contextlib import asynccontextmanager
 
-from backend.database import security_events
 
-app = FastAPI(title="AegisMesh Sentinel API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    initialize_database()
+    yield
+
+
+app = FastAPI(
+    title="AegisMesh Sentinel API",
+    lifespan=lifespan,
+)
+
 
 
 class SecurityEvent(BaseModel):
