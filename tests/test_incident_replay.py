@@ -396,6 +396,7 @@ def test_replay_explains_when_sensitive_resource_becomes_unreachable():
     )
     assert result["timeline"][2]["reachable_sensitive_resources"] == []
 
+
     assert result["timeline"][2]["access_changes"] == [
         {
             "resource": "resource:customer-db",
@@ -406,8 +407,11 @@ def test_replay_explains_when_sensitive_resource_becomes_unreachable():
                 "target": "resource:customer-db",
                 "type": "can_read",
             },
+            "event_index": 2,
+            "relationship_changed": True,
         }
     ]
+
 
 
 def test_replay_keeps_resource_reachable_when_alternate_path_exists():

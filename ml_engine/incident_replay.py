@@ -113,13 +113,17 @@ class IncidentReplay:
                             "target": target,
                             "type": relationship,
                         },
+                        "event_index": index,
+                        "relationship_changed": relationship_changed,
                     }
+
                 )
 
 
             for resource in sorted(previously_reachable - currently_reachable):
 
                 access_changes.append(
+
                     {
                         "resource": resource,
                         "change": "became_unreachable",
@@ -129,7 +133,10 @@ class IncidentReplay:
                             "target": target,
                             "type": relationship,
                         },
+                        "event_index": index,
+                        "relationship_changed": relationship_changed,
                     }
+
                 )
 
 
