@@ -156,3 +156,14 @@ def test_replay_accepts_valid_grant_request():
     ]
     assert len(body["timeline"]) == 1
     assert body["timeline"][0]["outcome"] == "granted"
+
+
+def test_health_endpoint_returns_service_status():
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "aegismesh-sentinel",
+        "version": "0.1.0",
+    }
