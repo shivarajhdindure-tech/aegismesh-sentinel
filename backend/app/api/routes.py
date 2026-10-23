@@ -1,26 +1,42 @@
 
+import os
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 
 from backend.app.api.schemas import AccessEventRequest
 from ml_engine.anomaly_detector import AccessAnomalyDetector
 from ml_engine.attack_graph import AttackGraph
+from ml_engine.baseline_loader import train_detector
 from ml_engine.pipeline import SecurityAnalysisPipeline
 
 router = APIRouter()
 
-# Synthetic baseline for the local prototype only.
-_detector = AccessAnomalyDetector(contamination=0.1)
-_baseline = [
-    {
-        "events_last_hour": 8 + (i % 3),
-        "unique_resources": 2 + (i % 2),
-        "failed_attempts": i % 2,
-        "privilege_changes": 0,
-        "off_hours": 0,
-    }
-    for i in range(30)
-]
-_detector.fit(_baseline)
+# Explicitly opt into synthetic data only for local development.
+_baseline_path = os.getenv("AEGISMESH_BASELINE_PATH")
+_use_synthetic = os.getenv("AEGISMESH_USE_SYNTHETIC_BASELINE") == "1"
+
+if _baseline_path:
+    _detector = train_detector(_baseline_path)
+elif _use_synthetic:
+    _detector = AccessAnomalyDetector(contamination=0.1)
+    _baseline = [
+        {
+            "events_last_hour": 8 + (i % 3),
+            "unique_resources": 2 + (i % 2),
+            "failed_attempts": i % 2,
+            "privilege_changes": 0,
+            "off_hours": 0,
+        }
+        for i in range(30)
+    ]
+    _detector.fit(_baseline)
+else:
+    raise RuntimeError(
+        "Configure AEGISMESH_BASELINE_PATH or explicitly set "
+        "AEGISMESH_USE_SYNTHETIC_BASELINE=1 for local development."
+    )
+
 _pipeline = SecurityAnalysisPipeline(_detector)
 
 
