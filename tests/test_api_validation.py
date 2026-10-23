@@ -261,3 +261,57 @@ def test_analyze_unexpected_exception_returns_generic_500():
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error"}
     assert "sensitive internal implementation details" not in response.text
+
+
+def test_replay_unexpected_exception_returns_generic_500():
+    with patch(
+        "backend.app.api.routes.IncidentReplay.replay",
+        side_effect=LookupError("sensitive replay implementation details"),
+    ):
+        response = client.post(
+            "/replay",
+            json={
+                "events": [
+                    {
+                        "source": "user:alice",
+                        "target": "role:developer",
+                        "relationship": "assumes",
+                        "action": "grant",
+                    }
+                ],
+                "sensitive_resources": [],
+            },
+        )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal server error"}
+    assert "sensitive replay implementation details" not in response.text
+
+
+def test_unexpected_exception_is_logged(caplog):
+    import logging
+
+    with caplog.at_level(logging.ERROR, logger="backend.app.main"):
+        with patch(
+            "backend.app.api.routes._pipeline.analyze",
+            side_effect=LookupError("test-only internal detail"),
+        ):
+            response = client.post(
+                "/analyze",
+                json={
+                    "incident_id": "incident-api-error-003",
+                    "identity_id": "user:alice",
+                    "events_last_hour": 9,
+                    "unique_resources": 2,
+                    "failed_attempts": 0,
+                    "privilege_changes": 0,
+                    "off_hours": 0,
+                    "relationships": [],
+                    "sensitive_resources": [],
+                },
+            )
+
+    assert response.status_code == 500
+    assert "Unhandled exception during POST /analyze" in caplog.text
+    assert "test-only internal detail" in caplog.text
+    assert "test-only internal detail" not in response.text
