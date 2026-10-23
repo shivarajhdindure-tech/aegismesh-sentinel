@@ -57,3 +57,35 @@ def test_empty_node_identifier_is_rejected():
         assert False, "Expected ValueError"
     except ValueError:
         pass
+
+
+def test_multiple_relationships_between_same_nodes_are_preserved():
+    graph = AttackGraph()
+
+    graph.add_relationship("user:alice", "role:admin", "assumes")
+    graph.add_relationship("user:alice", "role:admin", "delegates")
+
+    assert graph.graph.has_edge("user:alice", "role:admin")
+    assert graph.graph["user:alice"]["role:admin"]["relationship"] == [
+        "assumes",
+        "delegates",
+    ]
+
+
+def test_removing_one_relationship_preserves_other_relationship():
+    graph = AttackGraph()
+
+    graph.add_relationship("user:alice", "role:admin", "assumes")
+    graph.add_relationship("user:alice", "role:admin", "delegates")
+
+    removed = graph.remove_relationship(
+        "user:alice",
+        "role:admin",
+        "assumes",
+    )
+
+    assert removed is True
+    assert graph.graph.has_edge("user:alice", "role:admin")
+    assert graph.graph["user:alice"]["role:admin"]["relationship"] == [
+        "delegates"
+    ]

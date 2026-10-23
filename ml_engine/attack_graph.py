@@ -19,18 +19,58 @@ class AttackGraph:
         target: str,
         relationship: str,
     ) -> None:
-        """Add a directed relationship between two graph nodes."""
-        if not source.strip() or not target.strip():
+        """Add a relationship without overwriting other relationships on the edge."""
+        if not isinstance(source, str) or not source.strip():
             raise ValueError("Node identifiers cannot be empty")
 
-        if not relationship.strip():
+        if not isinstance(target, str) or not target.strip():
+            raise ValueError("Node identifiers cannot be empty")
+
+        if not isinstance(relationship, str) or not relationship.strip():
             raise ValueError("Relationship cannot be empty")
 
-        self.graph.add_edge(
-            source,
-            target,
-            relationship=relationship,
-        )
+        if self.graph.has_edge(source, target):
+            relationships = self.graph[source][target].get("relationship", [])
+            if isinstance(relationships, str):
+                relationships = [relationships]
+            if relationship not in relationships:
+                relationships.append(relationship)
+            self.graph[source][target]["relationship"] = relationships
+        else:
+            self.graph.add_edge(
+                source,
+                target,
+                relationship=[relationship],
+            )
+
+    def remove_relationship(
+        self,
+        source: str,
+        target: str,
+        relationship: str,
+    ) -> bool:
+        """Remove one relationship; remove the edge only when none remain."""
+        if not self.graph.has_edge(source, target):
+            return False
+
+        relationships = self.graph[source][target].get("relationship", [])
+        if isinstance(relationships, str):
+            relationships = [relationships]
+
+        if relationship not in relationships:
+            return False
+
+        remaining = [
+            item for item in relationships
+            if item != relationship
+        ]
+
+        if remaining:
+            self.graph[source][target]["relationship"] = remaining
+        else:
+            self.graph.remove_edge(source, target)
+
+        return True
 
     def reachable_resources(
         self,

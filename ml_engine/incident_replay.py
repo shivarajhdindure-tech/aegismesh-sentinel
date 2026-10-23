@@ -57,10 +57,7 @@ class IncidentReplay:
                 graph.add_relationship(source, target, relationship)
             else:
                 # Remove only the matching relationship type.
-                if graph.graph.has_edge(source, target):
-                    existing = graph.graph[source][target]
-                    if existing.get("relationship") == relationship:
-                        graph.graph.remove_edge(source, target)
+                graph.remove_relationship(source, target, relationship)
 
             relationships_processed += 1
 

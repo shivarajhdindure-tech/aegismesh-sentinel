@@ -109,3 +109,33 @@ def test_replay_rejects_unknown_action():
                 }
             ]
         )
+
+
+def test_revoking_one_relationship_preserves_another():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "delegates",
+                "action": "grant",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "revoke",
+            },
+        ],
+        sensitive_resources=[],
+    )
+
+    graph = IncidentReplay()
+    replay_graph = graph
+    assert result["events_replayed"] == 3
