@@ -24,6 +24,11 @@ class IncidentReplay:
         timeline: list[dict[str, Any]] = []
         relationships_processed = 0
 
+        # Use the first event's identity, or its source, for the whole replay.
+        replay_identity = events[0].get("identity_id", events[0].get("source"))
+        if not isinstance(replay_identity, str) or not replay_identity.strip():
+            raise ValueError("The first event requires a valid identity_id or source")
+
         for index, event in enumerate(events):
             if not isinstance(event, dict):
                 raise ValueError(f"Event {index} must be an object")
@@ -46,11 +51,16 @@ class IncidentReplay:
                 raise ValueError(
                     f"Event {index} action must be 'grant' or 'revoke'"
                 )
+            event_identity = event.get("identity_id")
+            if event_identity is not None and (
+                not isinstance(event_identity, str) or not event_identity.strip()
+            ):
+                raise ValueError(f"Event {index} has an invalid identity_id")
 
-            identity_id = event.get("identity_id", source)
-            if not isinstance(identity_id, str) or not identity_id.strip():
+            if event_identity is not None and event_identity != replay_identity:
                 raise ValueError(
-                    f"Event {index} has an invalid identity_id"
+                    f"Event {index} identity_id must match the replay identity "
+                    f"{replay_identity!r}"
                 )
 
             if action == "grant":
@@ -62,7 +72,7 @@ class IncidentReplay:
             relationships_processed += 1
 
             reachable = graph.reachable_resources(
-                identity_id,
+                replay_identity,
                 sensitive_resources or [],
             )
 
@@ -70,7 +80,7 @@ class IncidentReplay:
                 {
                     "event_index": index,
                     "action": action,
-                    "identity_id": identity_id,
+                    "identity_id": replay_identity,
                     "source": source,
                     "target": target,
                     "relationship": relationship,

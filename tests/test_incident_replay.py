@@ -139,3 +139,29 @@ def test_revoking_one_relationship_preserves_another():
     graph = IncidentReplay()
     replay_graph = graph
     assert result["events_replayed"] == 3
+
+    
+def test_replay_uses_one_consistent_identity_across_events():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:developer",
+                "relationship": "assumes",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "accesses",
+            },
+        ],
+        sensitive_resources=["resource:customer-db"],
+    )
+
+    assert [
+        item["identity_id"] for item in result["timeline"]
+    ] == ["user:alice", "user:alice"]
+
+    assert result["final_reachable_sensitive_resources"] == [
+        "resource:customer-db"
+    ]
