@@ -409,6 +409,8 @@ def test_replay_explains_when_sensitive_resource_becomes_unreachable():
             },
             "event_index": 2,
             "relationship_changed": True,
+            "reachable_before": ["resource:customer-db"],
+            "reachable_after": [],
         }
     ]
 

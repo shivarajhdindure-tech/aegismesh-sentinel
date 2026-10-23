@@ -115,6 +115,8 @@ class IncidentReplay:
                         },
                         "event_index": index,
                         "relationship_changed": relationship_changed,
+                        "reachable_before": sorted(previously_reachable),
+                        "reachable_after": reachable,
                     }
 
                 )
@@ -135,6 +137,8 @@ class IncidentReplay:
                         },
                         "event_index": index,
                         "relationship_changed": relationship_changed,
+                        "reachable_before": sorted(previously_reachable),
+                        "reachable_after": reachable,
                     }
 
                 )
@@ -153,6 +157,10 @@ class IncidentReplay:
                     "reachable_sensitive_resources": reachable,
                     "relationship_changed": relationship_changed,
                     "access_changes": access_changes,
+                    "reachable_sensitive_resources_before": sorted(
+                        previously_reachable
+                    ),
+                    "reachable_sensitive_resources_after": reachable,
                 }
             )
 
