@@ -23,6 +23,12 @@ class IncidentReplay:
         graph = AttackGraph()
         timeline: list[dict[str, Any]] = []
         relationships_processed = 0
+        outcome_counts = {
+            "granted": 0,
+            "already_present": 0,
+            "revoked": 0,
+            "not_found": 0,
+        }
 
         # Use the first event's identity, or its source, for the whole replay.
         replay_identity = events[0].get("identity_id", events[0].get("source"))
@@ -75,11 +81,13 @@ class IncidentReplay:
                 relationship_changed = relationship not in existing
                 graph.add_relationship(source, target, relationship)
                 outcome = "granted" if relationship_changed else "already_present"
+                outcome_counts[outcome] += 1
             else:
                 relationship_changed = graph.remove_relationship(
                     source, target, relationship
                 )
                 outcome = "revoked" if relationship_changed else "not_found"
+                outcome_counts[outcome] += 1
 
             relationships_processed += 1
             reachable = graph.reachable_resources(
@@ -104,6 +112,11 @@ class IncidentReplay:
         return {
             "events_replayed": len(events),
             "relationships_processed": relationships_processed,
+                        "summary": {
+                "events_replayed": len(events),
+                "relationships_processed": relationships_processed,
+                "outcome_counts": outcome_counts,
+            },
             "timeline": timeline,
             "final_reachable_sensitive_resources": (
                 timeline[-1]["reachable_sensitive_resources"]

@@ -277,3 +277,43 @@ def test_replay_reports_successful_and_missing_revocation_outcomes():
     assert result["timeline"][2]["outcome"] == "not_found"
     assert result["timeline"][1]["relationship_changed"] is True
     assert result["timeline"][2]["relationship_changed"] is False
+
+
+def test_replay_includes_summary_outcome_counts():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "revoke",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "revoke",
+            },
+        ]
+    )
+
+    assert result["summary"]["events_replayed"] == 4
+    assert result["summary"]["relationships_processed"] == 4
+    assert result["summary"]["outcome_counts"] == {
+        "granted": 1,
+        "already_present": 1,
+        "revoked": 1,
+        "not_found": 1,
+    }
