@@ -89,3 +89,20 @@ def test_removing_one_relationship_preserves_other_relationship():
     assert graph.graph["user:alice"]["role:admin"]["relationship"] == [
         "delegates"
     ]
+
+
+def test_removing_missing_relationship_returns_false():
+    graph = AttackGraph()
+    graph.add_relationship("user:alice", "role:admin", "assumes")
+
+    removed = graph.remove_relationship(
+        "user:alice",
+        "role:admin",
+        "delegates",
+    )
+
+    assert removed is False
+    assert graph.graph.has_edge("user:alice", "role:admin")
+    assert graph.graph["user:alice"]["role:admin"]["relationship"] == [
+        "assumes"
+    ]

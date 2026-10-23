@@ -110,37 +110,25 @@ def test_replay_rejects_unknown_action():
             ]
         )
 
-
 def test_revoking_one_relationship_preserves_another():
-    result = IncidentReplay().replay(
-        [
-            {
-                "source": "user:alice",
-                "target": "role:admin",
-                "relationship": "assumes",
-                "action": "grant",
-            },
-            {
-                "source": "user:alice",
-                "target": "role:admin",
-                "relationship": "delegates",
-                "action": "grant",
-            },
-            {
-                "source": "user:alice",
-                "target": "role:admin",
-                "relationship": "assumes",
-                "action": "revoke",
-            },
-        ],
-        sensitive_resources=[],
+    from ml_engine.attack_graph import AttackGraph
+
+    graph = AttackGraph()
+    graph.add_relationship("user:alice", "role:admin", "assumes")
+    graph.add_relationship("user:alice", "role:admin", "delegates")
+
+    removed = graph.remove_relationship(
+        "user:alice",
+        "role:admin",
+        "assumes",
     )
 
-    graph = IncidentReplay()
-    replay_graph = graph
-    assert result["events_replayed"] == 3
+    assert removed is True
+    assert graph.graph.has_edge("user:alice", "role:admin")
+    assert graph.graph["user:alice"]["role:admin"]["relationship"] == [
+        "delegates"
+    ]
 
-    
 def test_replay_uses_one_consistent_identity_across_events():
     result = IncidentReplay().replay(
         [
@@ -165,3 +153,73 @@ def test_replay_uses_one_consistent_identity_across_events():
     assert result["final_reachable_sensitive_resources"] == [
         "resource:customer-db"
     ]
+
+
+def test_revoking_one_path_preserves_alternative_path():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:developer",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "accesses",
+                "action": "grant",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:admin",
+                "target": "resource:customer-db",
+                "relationship": "accesses",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "accesses",
+                "action": "revoke",
+            },
+        ],
+        sensitive_resources=["resource:customer-db"],
+    )
+
+    assert result["timeline"][3]["reachable_sensitive_resources"] == [
+        "resource:customer-db"
+    ]
+    assert result["timeline"][4]["reachable_sensitive_resources"] == [
+        "resource:customer-db"
+    ]
+    assert result["final_reachable_sensitive_resources"] == [
+        "resource:customer-db"
+    ]
+
+
+def test_replay_marks_missing_revocation_as_no_op():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "delegates",
+                "action": "revoke",
+            },
+        ],
+    )
+
+    assert result["timeline"][0]["relationship_changed"] is True
+    assert result["timeline"][1]["relationship_changed"] is False
