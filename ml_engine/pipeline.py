@@ -8,6 +8,8 @@ from ml_engine.anomaly_detector import AccessAnomalyDetector
 from ml_engine.attack_graph import AttackGraph
 from ml_engine.risk_scorer import RiskScorer
 from ml_engine.permission_drift import PermissionDriftDetector
+import math
+from numbers import Real
 
 
 class SecurityAnalysisPipeline:
@@ -25,6 +27,58 @@ class SecurityAnalysisPipeline:
             permission_drift_detector or PermissionDriftDetector()
         )
 
+
+    @staticmethod
+    def _validate_event(event: dict[str, Any]) -> None:
+        """Validate the behavioral event before analysis."""
+        if not isinstance(event, dict):
+            raise ValueError("event must be an object")
+
+        required_fields = (
+            "events_last_hour",
+            "unique_resources",
+            "failed_attempts",
+            "privilege_changes",
+            "off_hours",
+        )
+
+        for field in required_fields:
+            if field not in event:
+                raise ValueError(f"event requires {field}")
+
+            value = event[field]
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, Real)
+                or not math.isfinite(value)
+            ):
+                raise ValueError(f"event field {field} must be a finite number")
+
+            if value < 0:
+                raise ValueError(f"event field {field} cannot be negative")
+
+        if event["off_hours"] not in (0, 1):
+            raise ValueError("event field off_hours must be 0 or 1")
+
+    @staticmethod
+    def _validate_candidate_relationship(
+        candidate_relationship: dict[str, str] | None,
+    ) -> None:
+        """Validate a hypothetical graph relationship."""
+        if candidate_relationship is None:
+            return
+
+        if not isinstance(candidate_relationship, dict):
+            raise ValueError("candidate_relationship must be an object")
+
+        for field in ("source", "target", "relationship"):
+            value = candidate_relationship.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(
+                    f"candidate_relationship requires a non-empty {field}"
+                )
+
+
     def analyze(
         self,
         *,
@@ -34,6 +88,7 @@ class SecurityAnalysisPipeline:
         attack_graph: AttackGraph,
         sensitive_resources: Iterable[str],
     ) -> RiskAssessment:
+        self._validate_event(event)
         anomaly = self.anomaly_detector.predict(event)
 
         resources = attack_graph.reachable_resources(
@@ -88,6 +143,8 @@ class SecurityAnalysisPipeline:
         candidate_relationship: dict[str, str] | None = None,
     ) -> RiskAssessment:
         """Combine behavioral, permission-drift, and attack-path evidence."""
+        self._validate_event(event)
+        self._validate_candidate_relationship(candidate_relationship)
 
         drift = self.permission_drift_detector.detect(
             expected_permissions,

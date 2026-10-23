@@ -214,3 +214,52 @@ def test_pipeline_candidate_relationship_without_new_sensitive_path():
     assert assessment.evidence["risk_prioritization"]["evidence"][
         "newly_reachable_resource_count"
     ] == 0
+
+
+import pytest
+
+
+def test_pipeline_rejects_event_with_missing_required_field():
+    detector = AccessAnomalyDetector(contamination=0.1)
+    pipeline = SecurityAnalysisPipeline(detector)
+
+    with pytest.raises(ValueError, match="event requires failed_attempts"):
+        pipeline._validate_event(
+            {
+                "events_last_hour": 8,
+                "unique_resources": 2,
+                "privilege_changes": 0,
+                "off_hours": 0,
+            }
+        )
+
+
+def test_pipeline_rejects_negative_event_values():
+    with pytest.raises(ValueError, match="cannot be negative"):
+        SecurityAnalysisPipeline._validate_event(
+            {
+                "events_last_hour": 8,
+                "unique_resources": 2,
+                "failed_attempts": -1,
+                "privilege_changes": 0,
+                "off_hours": 0,
+            }
+        )
+
+
+def test_pipeline_rejects_malformed_candidate_relationship():
+    with pytest.raises(
+        ValueError,
+        match="candidate_relationship requires a non-empty target",
+    ):
+        SecurityAnalysisPipeline._validate_candidate_relationship(
+            {
+                "source": "role:developer",
+                "target": "",
+                "relationship": "accesses",
+            }
+        )
+
+
+def test_pipeline_accepts_no_candidate_relationship():
+    SecurityAnalysisPipeline._validate_candidate_relationship(None)
