@@ -9,6 +9,13 @@ from unittest.mock import patch
 client = TestClient(app, raise_server_exceptions=False)
 
 
+@pytest.fixture(autouse=True)
+def reset_api_rate_limiter_between_tests():
+    app.state.rate_limiter.reset()
+    yield
+    app.state.rate_limiter.reset()
+
+
 def test_analyze_rejects_negative_failed_attempts(monkeypatch):
     response = client.post(
         "/analyze",
