@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from backend.app.api.schemas import (
     AccessEventRequest,
     IncidentReplayRequest,
+    PermissionRiskRequest,
 )
 from ml_engine.incident_replay import IncidentReplay
 from ml_engine.anomaly_detector import AccessAnomalyDetector
@@ -83,6 +84,59 @@ def analyze_event(request: AccessEventRequest) -> dict:
             detail="Internal server error",
         ) from None
 
+
+    return assessment.model_dump()
+
+
+@router.post("/analyze/permissions")
+def analyze_permission_risk(request: PermissionRiskRequest) -> dict:
+    graph = AttackGraph()
+
+    for source, target, relationship in request.relationships:
+        try:
+            graph.add_relationship(source, target, relationship)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    event = {
+        "events_last_hour": request.events_last_hour,
+        "unique_resources": request.unique_resources,
+        "failed_attempts": request.failed_attempts,
+        "privilege_changes": request.privilege_changes,
+        "off_hours": request.off_hours,
+    }
+
+    candidate_relationship = (
+        request.candidate_relationship.model_dump()
+        if request.candidate_relationship is not None
+        else None
+    )
+
+    try:
+        assessment = _pipeline.analyze_permission_risk(
+            incident_id=request.incident_id,
+            identity_id=request.identity_id,
+            event=event,
+            attack_graph=graph,
+            sensitive_resources=request.sensitive_resources,
+            expected_permissions=[
+                permission.model_dump()
+                for permission in request.expected_permissions
+            ],
+            observed_permissions=[
+                permission.model_dump()
+                for permission in request.observed_permissions
+            ],
+            candidate_relationship=candidate_relationship,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError:
+        logger.exception("Unexpected runtime error during permission risk analysis")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        ) from None
 
     return assessment.model_dump()
 

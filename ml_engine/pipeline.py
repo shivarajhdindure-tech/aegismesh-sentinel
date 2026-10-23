@@ -216,6 +216,9 @@ class SecurityAnalysisPipeline:
                 "extreme_outlier": anomaly["extreme_outlier"],
                 "permission_drift": drift,
                 "candidate_attack_path": path_analysis,
+                "candidate_attack_path_simulation_only": (
+                    candidate_relationship is not None
+                ),
                 "risk_prioritization": prioritized,
             },
             recommended_action=prioritized["recommended_action"],
