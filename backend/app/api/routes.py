@@ -70,8 +70,13 @@ def analyze_event(request: AccessEventRequest) -> dict:
             attack_graph=graph,
             sensitive_resources=request.sensitive_resources,
         )
-    except (ValueError, RuntimeError) as exc:
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        ) from exc
 
     return assessment.model_dump()
 

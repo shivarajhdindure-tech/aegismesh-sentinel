@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
+from unittest.mock import patch
 
 
 client = TestClient(app)
@@ -167,3 +168,47 @@ def test_health_endpoint_returns_service_status():
         "service": "aegismesh-sentinel",
         "version": "0.1.0",
     }
+
+
+def test_analyze_unexpected_error_does_not_expose_internal_details():
+    with patch(
+        "backend.app.api.routes._pipeline.analyze",
+        side_effect=RuntimeError("internal database password details"),
+    ):
+        response = client.post(
+            "/analyze",
+            json={
+                "incident_id": "incident-api-error-001",
+                "identity_id": "user:alice",
+                "events_last_hour": 9,
+                "unique_resources": 2,
+                "failed_attempts": 0,
+                "privilege_changes": 0,
+                "off_hours": 0,
+                "relationships": [],
+                "sensitive_resources": [],
+            },
+        )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal server error"}
+    assert "internal database password details" not in response.text
+
+
+def test_replay_invalid_event_returns_422():
+    response = client.post(
+        "/replay",
+        json={
+            "events": [
+                {
+                    "source": "user:alice",
+                    "target": "role:developer",
+                    "relationship": "assumes",
+                    "action": "invalid-action",
+                }
+            ],
+            "sensitive_resources": [],
+        },
+    )
+
+    assert response.status_code == 422
