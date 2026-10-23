@@ -64,7 +64,6 @@ class IncidentReplay:
                 )
 
             if action == "grant":
-                # A grant changes the graph only if this relationship is new.
                 existing = (
                     graph.graph[source][target].get("relationship", [])
                     if graph.graph.has_edge(source, target)
@@ -75,21 +74,18 @@ class IncidentReplay:
 
                 relationship_changed = relationship not in existing
                 graph.add_relationship(source, target, relationship)
+                outcome = "granted" if relationship_changed else "already_present"
             else:
-                # True only when the matching relationship was removed.
                 relationship_changed = graph.remove_relationship(
-                    source,
-                    target,
-                    relationship,
+                    source, target, relationship
                 )
+                outcome = "revoked" if relationship_changed else "not_found"
 
             relationships_processed += 1
-
-
             reachable = graph.reachable_resources(
-                replay_identity,
-                sensitive_resources or [],
+                replay_identity, sensitive_resources or []
             )
+
 
             timeline.append(
                 {
@@ -99,6 +95,7 @@ class IncidentReplay:
                     "source": source,
                     "target": target,
                     "relationship": relationship,
+                    "outcome": outcome,
                     "reachable_sensitive_resources": reachable,
                     "relationship_changed": relationship_changed,
                 }

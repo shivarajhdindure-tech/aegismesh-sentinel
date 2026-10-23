@@ -223,3 +223,57 @@ def test_replay_marks_missing_revocation_as_no_op():
 
     assert result["timeline"][0]["relationship_changed"] is True
     assert result["timeline"][1]["relationship_changed"] is False
+
+
+def test_replay_reports_grant_and_duplicate_grant_outcomes():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+        ]
+    )
+
+    assert result["timeline"][0]["outcome"] == "granted"
+    assert result["timeline"][1]["outcome"] == "already_present"
+    assert result["timeline"][0]["relationship_changed"] is True
+    assert result["timeline"][1]["relationship_changed"] is False
+
+
+def test_replay_reports_successful_and_missing_revocation_outcomes():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "revoke",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "revoke",
+            },
+        ]
+    )
+
+    assert result["timeline"][1]["outcome"] == "revoked"
+    assert result["timeline"][2]["outcome"] == "not_found"
+    assert result["timeline"][1]["relationship_changed"] is True
+    assert result["timeline"][2]["relationship_changed"] is False
