@@ -4,7 +4,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from backend.app.api.schemas import AccessEventRequest
+from backend.app.api.schemas import (
+    AccessEventRequest,
+    IncidentReplayRequest,
+)
+from ml_engine.incident_replay import IncidentReplay
 from ml_engine.anomaly_detector import AccessAnomalyDetector
 from ml_engine.attack_graph import AttackGraph
 from ml_engine.baseline_loader import train_detector
@@ -70,3 +74,19 @@ def analyze_event(request: AccessEventRequest) -> dict:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return assessment.model_dump()
+
+
+@router.post("/replay")
+def replay_incident(request: IncidentReplayRequest) -> dict:
+    replay_engine = IncidentReplay()
+
+    events = [event.model_dump(exclude_none=True) for event in request.events]
+
+    try:
+        return replay_engine.replay(
+            events=events,
+            sensitive_resources=request.sensitive_resources,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+

@@ -60,3 +60,68 @@ def test_analyze_rejects_invalid_input():
     )
 
     assert response.status_code == 422
+
+
+def test_replay_endpoint_tracks_grants_and_revocations():
+    response = client.post(
+        "/replay",
+        json={
+            "events": [
+                {
+                    "source": "user:alice",
+                    "target": "role:developer",
+                    "relationship": "assumes",
+                    "action": "grant",
+                },
+                {
+                    "source": "role:developer",
+                    "target": "resource:customer-db",
+                    "relationship": "accesses",
+                    "action": "grant",
+                },
+                {
+                    "source": "role:developer",
+                    "target": "resource:customer-db",
+                    "relationship": "accesses",
+                    "action": "revoke",
+                },
+            ],
+            "sensitive_resources": ["resource:customer-db"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["events_replayed"] == 3
+    assert body["timeline"][1]["reachable_sensitive_resources"] == [
+        "resource:customer-db"
+    ]
+    assert body["timeline"][2]["reachable_sensitive_resources"] == []
+    assert body["final_reachable_sensitive_resources"] == []
+
+
+def test_replay_endpoint_rejects_invalid_action():
+    response = client.post(
+        "/replay",
+        json={
+            "events": [
+                {
+                    "source": "user:alice",
+                    "target": "role:developer",
+                    "relationship": "assumes",
+                    "action": "delete-everything",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_replay_endpoint_rejects_empty_events():
+    response = client.post(
+        "/replay",
+        json={"events": []},
+    )
+
+    assert response.status_code == 422
