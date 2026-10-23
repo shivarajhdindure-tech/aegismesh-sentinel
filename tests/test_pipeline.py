@@ -263,3 +263,88 @@ def test_pipeline_rejects_malformed_candidate_relationship():
 
 def test_pipeline_accepts_no_candidate_relationship():
     SecurityAnalysisPipeline._validate_candidate_relationship(None)
+
+
+def test_analyze_rejects_missing_event_field_before_prediction():
+    detector = AccessAnomalyDetector(contamination=0.1)
+    pipeline = SecurityAnalysisPipeline(detector)
+    graph = AttackGraph()
+
+    with pytest.raises(ValueError, match="event requires failed_attempts"):
+        pipeline.analyze(
+            incident_id="incident-invalid-001",
+            identity_id="user:alice",
+            event={
+                "events_last_hour": 8,
+                "unique_resources": 2,
+                "privilege_changes": 0,
+                "off_hours": 0,
+            },
+            attack_graph=graph,
+            sensitive_resources=[],
+        )
+
+
+def test_analyze_permission_risk_rejects_malformed_candidate():
+    detector = AccessAnomalyDetector(contamination=0.1)
+    pipeline = SecurityAnalysisPipeline(detector)
+    graph = AttackGraph()
+
+    with pytest.raises(
+        ValueError,
+        match="candidate_relationship requires a non-empty target",
+    ):
+        pipeline.analyze_permission_risk(
+            incident_id="incident-invalid-002",
+            identity_id="user:alice",
+            event={
+                "events_last_hour": 8,
+                "unique_resources": 2,
+                "failed_attempts": 0,
+                "privilege_changes": 0,
+                "off_hours": 0,
+            },
+            attack_graph=graph,
+            sensitive_resources=["resource:customer-db"],
+            expected_permissions=[],
+            observed_permissions=[],
+            candidate_relationship={
+                "source": "role:developer",
+                "target": "",
+                "relationship": "accesses",
+            },
+        )
+
+
+def test_analyze_permission_risk_rejects_invalid_event_without_graph_mutation():
+    detector = AccessAnomalyDetector(contamination=0.1)
+    pipeline = SecurityAnalysisPipeline(detector)
+    graph = AttackGraph()
+    graph.add_relationship("user:alice", "role:developer", "assumes")
+
+    with pytest.raises(ValueError, match="cannot be negative"):
+        pipeline.analyze_permission_risk(
+            incident_id="incident-invalid-003",
+            identity_id="user:alice",
+            event={
+                "events_last_hour": 8,
+                "unique_resources": 2,
+                "failed_attempts": -1,
+                "privilege_changes": 0,
+                "off_hours": 0,
+            },
+            attack_graph=graph,
+            sensitive_resources=["resource:customer-db"],
+            expected_permissions=[],
+            observed_permissions=[],
+            candidate_relationship={
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "accesses",
+            },
+        )
+
+    assert graph.reachable_resources(
+        "user:alice",
+        ["resource:customer-db"],
+    ) == []
