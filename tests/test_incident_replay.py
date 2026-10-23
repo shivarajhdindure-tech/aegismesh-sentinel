@@ -363,3 +363,88 @@ def test_replay_explains_when_sensitive_resource_becomes_reachable():
             "resource:customer-db",
         ]
     )
+
+
+def test_replay_explains_when_sensitive_resource_becomes_unreachable():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:developer",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "revoke",
+            },
+        ],
+        sensitive_resources=["resource:customer-db"],
+    )
+
+    assert (
+        result["timeline"][1]["reachable_sensitive_resources"]
+        == ["resource:customer-db"]
+    )
+    assert result["timeline"][2]["reachable_sensitive_resources"] == []
+
+    assert result["timeline"][2]["access_changes"] == [
+        {
+            "resource": "resource:customer-db",
+            "change": "became_unreachable",
+            "path": None,
+        }
+    ]
+
+
+def test_replay_keeps_resource_reachable_when_alternate_path_exists():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:developer",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "grant",
+            },
+            {
+                "source": "user:alice",
+                "target": "role:admin",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:admin",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "revoke",
+            },
+        ],
+        sensitive_resources=["resource:customer-db"],
+    )
+
+    final_event = result["timeline"][-1]
+
+    assert final_event["reachable_sensitive_resources"] == [
+        "resource:customer-db"
+    ]
+    assert final_event["access_changes"] == []
