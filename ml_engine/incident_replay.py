@@ -102,22 +102,36 @@ class IncidentReplay:
             access_changes = []
             for resource in sorted(currently_reachable - previously_reachable):
                 path = graph.shortest_path(replay_identity, resource)
+
                 access_changes.append(
                     {
                         "resource": resource,
                         "change": "became_reachable",
                         "path": path,
+                        "relationship": {
+                            "source": source,
+                            "target": target,
+                            "type": relationship,
+                        },
                     }
                 )
 
+
             for resource in sorted(previously_reachable - currently_reachable):
+
                 access_changes.append(
                     {
                         "resource": resource,
                         "change": "became_unreachable",
                         "path": None,
+                        "relationship": {
+                            "source": source,
+                            "target": target,
+                            "type": relationship,
+                        },
                     }
                 )
+
 
 
             timeline.append(
@@ -135,10 +149,11 @@ class IncidentReplay:
                 }
             )
 
+
         return {
             "events_replayed": len(events),
             "relationships_processed": relationships_processed,
-                        "summary": {
+            "summary": {
                 "events_replayed": len(events),
                 "relationships_processed": relationships_processed,
                 "outcome_counts": outcome_counts,
@@ -148,3 +163,4 @@ class IncidentReplay:
                 timeline[-1]["reachable_sensitive_resources"]
             ),
         }
+

@@ -401,6 +401,11 @@ def test_replay_explains_when_sensitive_resource_becomes_unreachable():
             "resource": "resource:customer-db",
             "change": "became_unreachable",
             "path": None,
+            "relationship": {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "type": "can_read",
+            },
         }
     ]
 
@@ -448,3 +453,38 @@ def test_replay_keeps_resource_reachable_when_alternate_path_exists():
         "resource:customer-db"
     ]
     assert final_event["access_changes"] == []
+
+
+def test_access_change_identifies_relationship_that_enabled_access():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:developer",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "can_read",
+                "action": "grant",
+            },
+        ],
+        sensitive_resources=["resource:customer-db"],
+    )
+
+    change = result["timeline"][1]["access_changes"][0]
+
+    assert change["resource"] == "resource:customer-db"
+    assert change["change"] == "became_reachable"
+    assert change["path"] == [
+        "user:alice",
+        "role:developer",
+        "resource:customer-db",
+    ]
+    assert change["relationship"] == {
+        "source": "role:developer",
+        "target": "resource:customer-db",
+        "type": "can_read",
+    }
