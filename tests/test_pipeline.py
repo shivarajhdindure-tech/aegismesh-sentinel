@@ -116,3 +116,101 @@ def test_pipeline_integrates_permission_drift_and_candidate_attack_path():
     
     assert assessment.recommended_action is not None
     assert len(assessment.recommended_action) > 0
+
+
+def test_pipeline_permission_risk_with_no_permission_drift():
+    detector = AccessAnomalyDetector(contamination=0.1)
+    baseline = [
+        {
+            "events_last_hour": 8 + (i % 3),
+            "unique_resources": 2 + (i % 2),
+            "failed_attempts": i % 2,
+            "privilege_changes": 0,
+            "off_hours": 0,
+        }
+        for i in range(30)
+    ]
+    detector.fit(baseline)
+
+    graph = AttackGraph()
+    graph.add_relationship("user:alice", "role:developer", "assumes")
+
+    pipeline = SecurityAnalysisPipeline(detector)
+
+    permissions = [
+        {
+            "identity": "user:alice",
+            "resource": "resource:customer-db",
+            "action": "read",
+        }
+    ]
+
+    assessment = pipeline.analyze_permission_risk(
+        incident_id="incident-003",
+        identity_id="user:alice",
+        event={
+            "events_last_hour": 9,
+            "unique_resources": 2,
+            "failed_attempts": 0,
+            "privilege_changes": 0,
+            "off_hours": 0,
+        },
+        attack_graph=graph,
+        sensitive_resources=["resource:customer-db"],
+        expected_permissions=permissions,
+        observed_permissions=permissions,
+    )
+
+    assert assessment.evidence["permission_drift"]["drift_detected"] is False
+    assert assessment.evidence["permission_drift"]["finding_count"] == 0
+    assert assessment.evidence["candidate_attack_path"] is None
+
+
+def test_pipeline_candidate_relationship_without_new_sensitive_path():
+    detector = AccessAnomalyDetector(contamination=0.1)
+    baseline = [
+        {
+            "events_last_hour": 8 + (i % 3),
+            "unique_resources": 2 + (i % 2),
+            "failed_attempts": i % 2,
+            "privilege_changes": 0,
+            "off_hours": 0,
+        }
+        for i in range(30)
+    ]
+    detector.fit(baseline)
+
+    graph = AttackGraph()
+    graph.add_relationship("user:alice", "role:developer", "assumes")
+    graph.add_relationship("role:developer", "resource:customer-db", "accesses")
+
+    pipeline = SecurityAnalysisPipeline(detector)
+
+    assessment = pipeline.analyze_permission_risk(
+        incident_id="incident-004",
+        identity_id="user:alice",
+        event={
+            "events_last_hour": 9,
+            "unique_resources": 2,
+            "failed_attempts": 0,
+            "privilege_changes": 0,
+            "off_hours": 0,
+        },
+        attack_graph=graph,
+        sensitive_resources=["resource:customer-db"],
+        expected_permissions=[],
+        observed_permissions=[],
+        candidate_relationship={
+            "source": "role:developer",
+            "target": "resource:customer-db",
+            "relationship": "accesses",
+        },
+    )
+
+    assert assessment.evidence["permission_drift"]["finding_count"] == 0
+    assert assessment.evidence["candidate_attack_path"][
+        "newly_reachable_sensitive_resources"
+    ] == []
+    assert assessment.evidence["risk_prioritization"]["evidence"][
+        "newly_reachable_resource_count"
+    ] == 0
