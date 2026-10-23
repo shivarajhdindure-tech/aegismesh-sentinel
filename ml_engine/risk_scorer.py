@@ -79,3 +79,82 @@ class RiskScorer:
             "reasons": reasons or ["No configured risk signals detected"],
             "model_version": self.MODEL_VERSION,
         }
+    
+    def prioritize(
+        self,
+        *,
+        base_score: int,
+        unexpected_permission_count: int = 0,
+        newly_reachable_resource_count: int = 0,
+    ) -> dict[str, Any]:
+        """Prioritize risk using permission-drift and attack-path evidence."""
+        values = {
+            "base_score": base_score,
+            "unexpected_permission_count": unexpected_permission_count,
+            "newly_reachable_resource_count": newly_reachable_resource_count,
+        }
+
+        for name, value in values.items():
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"{name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{name} cannot be negative")
+
+        if base_score > 100:
+            raise ValueError("base_score cannot exceed 100")
+
+        score = base_score
+        reasons: list[str] = []
+
+        if unexpected_permission_count:
+            points = min(unexpected_permission_count * 10, 30)
+            score += points
+            reasons.append(
+                f"{unexpected_permission_count} unexpected permission(s) detected"
+            )
+
+        if newly_reachable_resource_count:
+            points = min(newly_reachable_resource_count * 15, 30)
+            score += points
+            reasons.append(
+                f"{newly_reachable_resource_count} sensitive resource(s) "
+                "became newly reachable"
+            )
+
+        score = min(score, 100)
+
+        if score >= 80:
+            severity = "critical"
+        elif score >= 60:
+            severity = "high"
+        elif score >= 30:
+            severity = "medium"
+        else:
+            severity = "low"
+
+        if not reasons:
+            reasons.append("No additional permission-drift or attack-path evidence")
+
+        if severity == "critical":
+            recommended_action = "Urgent security review and remediation approval"
+        elif severity == "high":
+            recommended_action = "Prioritize investigation and review remediation"
+        elif severity == "medium":
+            recommended_action = "Investigate findings and validate access requirements"
+        else:
+            recommended_action = "Continue monitoring"
+
+        return {
+            "risk_score": score,
+            "severity": severity,
+            "reasons": reasons,
+            "recommended_action": recommended_action,
+            "requires_human_approval": True,
+            "evidence": {
+                "base_score": base_score,
+                "unexpected_permission_count": unexpected_permission_count,
+                "newly_reachable_resource_count": newly_reachable_resource_count,
+            },
+            "model_version": self.MODEL_VERSION,
+        }
+
