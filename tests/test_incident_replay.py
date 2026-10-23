@@ -63,3 +63,49 @@ def test_replay_records_timeline_after_each_event():
     assert result["timeline"][1]["reachable_sensitive_resources"] == [
         "resource:customer-db"
     ]
+
+
+def test_revoke_removes_sensitive_resource_reachability():
+    result = IncidentReplay().replay(
+        [
+            {
+                "source": "user:alice",
+                "target": "role:developer",
+                "relationship": "assumes",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "accesses",
+                "action": "grant",
+            },
+            {
+                "source": "role:developer",
+                "target": "resource:customer-db",
+                "relationship": "accesses",
+                "action": "revoke",
+            },
+        ],
+        sensitive_resources=["resource:customer-db"],
+    )
+
+    assert result["timeline"][1]["reachable_sensitive_resources"] == [
+        "resource:customer-db"
+    ]
+    assert result["timeline"][2]["reachable_sensitive_resources"] == []
+    assert result["final_reachable_sensitive_resources"] == []
+
+
+def test_replay_rejects_unknown_action():
+    with pytest.raises(ValueError, match="action must be"):
+        IncidentReplay().replay(
+            [
+                {
+                    "source": "user:alice",
+                    "target": "role:developer",
+                    "relationship": "assumes",
+                    "action": "delete-everything",
+                }
+            ]
+        )

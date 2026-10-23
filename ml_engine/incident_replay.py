@@ -7,7 +7,7 @@ from ml_engine.attack_graph import AttackGraph
 
 
 class IncidentReplay:
-    """Replay recorded access events against an in-memory attack graph."""
+    """Replay permission grants and revocations in an in-memory graph."""
 
     def replay(
         self,
@@ -22,7 +22,7 @@ class IncidentReplay:
 
         graph = AttackGraph()
         timeline: list[dict[str, Any]] = []
-        relationships_seen = 0
+        relationships_processed = 0
 
         for index, event in enumerate(events):
             if not isinstance(event, dict):
@@ -31,6 +31,7 @@ class IncidentReplay:
             source = event.get("source")
             target = event.get("target")
             relationship = event.get("relationship")
+            action = event.get("action", "grant")
 
             if not all(
                 isinstance(value, str) and value.strip()
@@ -41,14 +42,27 @@ class IncidentReplay:
                     "target, and relationship strings"
                 )
 
-            graph.add_relationship(source, target, relationship)
-            relationships_seen += 1
+            if action not in ("grant", "revoke"):
+                raise ValueError(
+                    f"Event {index} action must be 'grant' or 'revoke'"
+                )
 
             identity_id = event.get("identity_id", source)
             if not isinstance(identity_id, str) or not identity_id.strip():
                 raise ValueError(
                     f"Event {index} has an invalid identity_id"
                 )
+
+            if action == "grant":
+                graph.add_relationship(source, target, relationship)
+            else:
+                # Remove only the matching relationship type.
+                if graph.graph.has_edge(source, target):
+                    existing = graph.graph[source][target]
+                    if existing.get("relationship") == relationship:
+                        graph.graph.remove_edge(source, target)
+
+            relationships_processed += 1
 
             reachable = graph.reachable_resources(
                 identity_id,
@@ -58,6 +72,7 @@ class IncidentReplay:
             timeline.append(
                 {
                     "event_index": index,
+                    "action": action,
                     "identity_id": identity_id,
                     "source": source,
                     "target": target,
@@ -68,7 +83,7 @@ class IncidentReplay:
 
         return {
             "events_replayed": len(events),
-            "relationships_processed": relationships_seen,
+            "relationships_processed": relationships_processed,
             "timeline": timeline,
             "final_reachable_sensitive_resources": (
                 timeline[-1]["reachable_sensitive_resources"]
